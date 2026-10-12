@@ -12,45 +12,22 @@ type window struct {
 	object protocol.RiverWindowV1
 	node   protocol.RiverNodeV1
 
-	x, y          int32
-	width, height int32
+	decorationHint uint32
 
 	isNew  bool
 	closed bool
-
-	pointerMoveRequested *seat
-
-	pointerResizeRequested      *seat
-	pointerResizeRequestedEdges uint32
-}
-
-func (w *window) setPosition(x, y int32) {
-	w.node.SetPosition(x, y)
-	w.x, w.y = x, y
 }
 
 func (w *window) HandleRiverWindowV1Closed(ctx context.Context) {
 	w.closed = true
 }
 
-func (w *window) HandleRiverWindowV1Dimensions(ctx context.Context, width int32, height int32) {
-	w.width, w.height = width, height
+func (w *window) HandleRiverWindowV1DecorationHint(ctx context.Context, hint uint32) {
+	w.decorationHint = hint
 }
 
-func (w *window) HandleRiverWindowV1PointerMoveRequested(
-	ctx context.Context,
-	riverSeat protocol.RiverSeatV1,
-) {
-	w.pointerMoveRequested = riverSeat.UserData().(*seat)
-}
-
-func (w *window) HandleRiverWindowV1PointerResizeRequested(
-	ctx context.Context,
-	riverSeat protocol.RiverSeatV1,
-	edges uint32,
-) {
-	w.pointerResizeRequested = riverSeat.UserData().(*seat)
-	w.pointerResizeRequestedEdges = edges
+func (w *window) setPosition(x, y int32) {
+	w.node.SetPosition(x, y)
 }
 
 func (w *window) maybeDestroy() bool {
@@ -60,6 +37,7 @@ func (w *window) maybeDestroy() bool {
 
 	w.node.Destroy()
 	w.object.Destroy()
+
 	return true
 }
 
@@ -70,24 +48,22 @@ func (w *window) manage() {
 		w.object.ProposeDimensions(0, 0)
 	}
 
-	if w.pointerMoveRequested != nil {
-		w.pointerMoveRequested.pointerMove(w)
-		w.pointerMoveRequested = nil
-	}
-
-	if w.pointerResizeRequested != nil {
-		w.pointerResizeRequested.pointerResize(w, w.pointerResizeRequestedEdges)
-		w.pointerResizeRequested = nil
+	if w.decorationHint == protocol.RiverWindowV1DecorationHintOnlySupportsCsd {
+		w.object.UseCsd()
+	} else {
+		w.object.UseSsd()
 	}
 }
 
 func newWindow(object protocol.RiverWindowV1) *window {
 	window := &window{
-		object: object,
-		node:   object.GetNode(),
-		isNew:  true,
+		object:         object,
+		node:           object.GetNode(),
+		decorationHint: protocol.RiverWindowV1DecorationHintNoPreference,
+		isNew:          true,
 	}
 
 	object.SetUserData(window)
+
 	return window
 }

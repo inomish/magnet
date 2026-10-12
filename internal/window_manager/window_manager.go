@@ -83,9 +83,5 @@ func (windowManager *WindowManager) HandleRiverWindowManagerV1ManageStart(ctx co
 }
 
 func (windowManager *WindowManager) HandleRiverWindowManagerV1RenderStart(ctx context.Context) {
-	for _, seat := range windowManager.seats {
-		seat.render()
-	}
-
 	windowManager.WindowManagerV1.RenderFinish()
 }
