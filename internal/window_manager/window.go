@@ -6,86 +6,86 @@ import (
 	"github.com/inomish/magnet/generated/protocol"
 )
 
-type Window struct {
+type window struct {
 	protocol.RiverWindowV1Stub
 
-	Object protocol.RiverWindowV1
-	Node   protocol.RiverNodeV1
+	object protocol.RiverWindowV1
+	node   protocol.RiverNodeV1
 
-	X, Y          int32
-	Width, Height int32
+	x, y          int32
+	width, height int32
 
-	New    bool
-	Closed bool
+	isNew  bool
+	closed bool
 
-	PointerMoveRequested *Seat
+	pointerMoveRequested *seat
 
-	PointerResizeRequested      *Seat
-	PointerResizeRequestedEdges uint32
+	pointerResizeRequested      *seat
+	pointerResizeRequestedEdges uint32
 }
 
-func (w *Window) SetPosition(x, y int32) {
-	w.Node.SetPosition(x, y)
-	w.X, w.Y = x, y
+func (w *window) setPosition(x, y int32) {
+	w.node.SetPosition(x, y)
+	w.x, w.y = x, y
 }
 
-func (w *Window) HandleRiverWindowV1Closed(ctx context.Context) {
-	w.Closed = true
+func (w *window) HandleRiverWindowV1Closed(ctx context.Context) {
+	w.closed = true
 }
 
-func (w *Window) HandleRiverWindowV1Dimensions(ctx context.Context, width int32, height int32) {
-	w.Width, w.Height = width, height
+func (w *window) HandleRiverWindowV1Dimensions(ctx context.Context, width int32, height int32) {
+	w.width, w.height = width, height
 }
 
-func (w *Window) HandleRiverWindowV1PointerMoveRequested(
+func (w *window) HandleRiverWindowV1PointerMoveRequested(
 	ctx context.Context,
-	seat protocol.RiverSeatV1,
+	riverSeat protocol.RiverSeatV1,
 ) {
-	w.PointerMoveRequested = seat.UserData().(*Seat)
+	w.pointerMoveRequested = riverSeat.UserData().(*seat)
 }
 
-func (w *Window) HandleRiverWindowV1PointerResizeRequested(
+func (w *window) HandleRiverWindowV1PointerResizeRequested(
 	ctx context.Context,
-	seat protocol.RiverSeatV1,
+	riverSeat protocol.RiverSeatV1,
 	edges uint32,
 ) {
-	w.PointerResizeRequested = seat.UserData().(*Seat)
-	w.PointerResizeRequestedEdges = edges
+	w.pointerResizeRequested = riverSeat.UserData().(*seat)
+	w.pointerResizeRequestedEdges = edges
 }
 
-func (w *Window) MaybeDestroy() bool {
-	if !w.Closed {
+func (w *window) maybeDestroy() bool {
+	if !w.closed {
 		return false
 	}
 
-	w.Node.Destroy()
-	w.Object.Destroy()
+	w.node.Destroy()
+	w.object.Destroy()
 	return true
 }
 
-func (w *Window) Manage() {
-	if w.New {
-		w.New = false
-		w.SetPosition(0, 0)
-		w.Object.ProposeDimensions(0, 0)
+func (w *window) manage() {
+	if w.isNew {
+		w.isNew = false
+		w.setPosition(0, 0)
+		w.object.ProposeDimensions(0, 0)
 	}
 
-	if w.PointerMoveRequested != nil {
-		w.PointerMoveRequested.PointerMove(w)
-		w.PointerMoveRequested = nil
+	if w.pointerMoveRequested != nil {
+		w.pointerMoveRequested.pointerMove(w)
+		w.pointerMoveRequested = nil
 	}
 
-	if w.PointerResizeRequested != nil {
-		w.PointerResizeRequested.PointerResize(w, w.PointerResizeRequestedEdges)
-		w.PointerResizeRequested = nil
+	if w.pointerResizeRequested != nil {
+		w.pointerResizeRequested.pointerResize(w, w.pointerResizeRequestedEdges)
+		w.pointerResizeRequested = nil
 	}
 }
 
-func NewWindow(object protocol.RiverWindowV1) *Window {
-	window := &Window{
-		Object: object,
-		Node:   object.GetNode(),
-		New:    true,
+func newWindow(object protocol.RiverWindowV1) *window {
+	window := &window{
+		object: object,
+		node:   object.GetNode(),
+		isNew:  true,
 	}
 
 	object.SetUserData(window)

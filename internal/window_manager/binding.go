@@ -6,52 +6,52 @@ import (
 	"github.com/inomish/magnet/generated/protocol"
 )
 
-type XkbBinding struct {
+type xkbBinding struct {
 	protocol.RiverXkbBindingV1Stub
 
-	Object protocol.RiverXkbBindingV1
+	object protocol.RiverXkbBindingV1
 
-	Seat     *Seat
-	ActionFn func()
+	seat     *seat
+	actionFn func()
 }
 
-func NewXkbBinding(seat *Seat, keysym uint32, mods uint32, fn func()) *XkbBinding {
-	binding := &XkbBinding{
-		Object:   seat.WindowManager.XkbBindingsV1.GetXkbBinding(seat.Object, keysym, mods),
-		Seat:     seat,
-		ActionFn: fn,
+func newXkbBinding(seat *seat, keysym uint32, mods uint32, fn func()) *xkbBinding {
+	binding := &xkbBinding{
+		object:   seat.windowManager.XkbBindingsV1.GetXkbBinding(seat.object, keysym, mods),
+		seat:     seat,
+		actionFn: fn,
 	}
 
-	binding.Object.SetUserData(binding)
+	binding.object.SetUserData(binding)
 
 	return binding
 }
 
-func (p *XkbBinding) HandleRiverXkbBindingV1Pressed(ctx context.Context) {
-	p.Seat.PendingAction = p.ActionFn
+func (binding *xkbBinding) HandleRiverXkbBindingV1Pressed(ctx context.Context) {
+	binding.seat.pendingAction = binding.actionFn
 }
 
-type PointerBinding struct {
+type pointerBinding struct {
 	protocol.RiverPointerBindingV1Stub
 
-	Object protocol.RiverPointerBindingV1
+	object protocol.RiverPointerBindingV1
 
-	Seat     *Seat
-	ActionFn func()
+	seat     *seat
+	actionFn func()
 }
 
-func NewPointerBinding(seat *Seat, button uint32, mods uint32, fn func()) *PointerBinding {
-	binding := &PointerBinding{
-		Object:   seat.Object.GetPointerBinding(button, mods),
-		Seat:     seat,
-		ActionFn: fn,
+func newPointerBinding(seat *seat, button uint32, mods uint32, fn func()) *pointerBinding {
+	binding := &pointerBinding{
+		object:   seat.object.GetPointerBinding(button, mods),
+		seat:     seat,
+		actionFn: fn,
 	}
 
-	binding.Object.SetUserData(binding)
+	binding.object.SetUserData(binding)
 
 	return binding
 }
 
-func (p *PointerBinding) HandleRiverPointerBindingV1Pressed(ctx context.Context) {
-	p.Seat.PendingAction = p.ActionFn
+func (binding *pointerBinding) HandleRiverPointerBindingV1Pressed(ctx context.Context) {
+	binding.seat.pendingAction = binding.actionFn
 }

@@ -9,42 +9,42 @@ import (
 	"github.com/inomish/magnet/generated/protocol"
 )
 
-type SeatOperation interface {
-	Manage(state *SeatOperationState)
-	Render(state *SeatOperationState)
-	InformStart(w *Window)
-	InformEnd(w *Window)
+type seatOperation interface {
+	manage(state *seatOperationState)
+	render(state *seatOperationState)
+	informStart(window *window)
+	informEnd(window *window)
 }
 
-type SeatOperationState struct {
-	Window *Window
-	Dx, Dy int32
+type seatOperationState struct {
+	window *window
+	dx, dy int32
 }
 
-type Seat struct {
+type seat struct {
 	protocol.RiverSeatV1Stub
 
-	WindowManager *WindowManager
+	windowManager *WindowManager
 
-	Object          protocol.RiverSeatV1
-	XkbBindings     []*XkbBinding
-	PointerBindings []*PointerBinding
+	object          protocol.RiverSeatV1
+	xkbBindings     []*xkbBinding
+	pointerBindings []*pointerBinding
 
-	Focused    *Window
-	Hovered    *Window
-	Interacted *Window
+	focused    *window
+	hovered    *window
+	interacted *window
 
-	PendingAction func()
+	pendingAction func()
 
-	Operation         SeatOperation
-	OperationState    SeatOperationState
-	OperationReleased bool
+	operation         seatOperation
+	operationState    seatOperationState
+	operationReleased bool
 
-	New     bool
-	Removed bool
+	isNew   bool
+	removed bool
 }
 
-func NewSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *Seat {
+func newSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *seat {
 	const (
 		// See xkbcommon-keysyms.h
 		spaceSym = 0x0020
@@ -58,14 +58,14 @@ func NewSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *Seat {
 
 	const super = protocol.RiverSeatV1ModifiersMod1
 
-	seat := &Seat{
-		WindowManager: windowManager,
-		Object:        object,
-		New:           true,
+	seat := &seat{
+		windowManager: windowManager,
+		object:        object,
+		isNew:         true,
 	}
 
-	seat.XkbBindings = []*XkbBinding{
-		NewXkbBinding(seat, spaceSym, super, func() {
+	seat.xkbBindings = []*xkbBinding{
+		newXkbBinding(seat, spaceSym, super, func() {
 			cmd := exec.Command("kitty")
 
 			if err := cmd.Start(); err != nil {
@@ -74,259 +74,259 @@ func NewSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *Seat {
 			}
 			go func() { _, _ = cmd.Process.Wait() }()
 		}),
-		NewXkbBinding(seat, nSym, super, func() {
-			if len(seat.WindowManager.Windows) > 0 {
-				seat.Focus(seat.WindowManager.Windows[0])
+		newXkbBinding(seat, nSym, super, func() {
+			if len(seat.windowManager.windows) > 0 {
+				seat.focus(seat.windowManager.windows[0])
 			}
 		}),
-		NewXkbBinding(seat, qSym, super, func() {
-			if seat.Focused != nil {
-				seat.Focused.Object.Close()
+		newXkbBinding(seat, qSym, super, func() {
+			if seat.focused != nil {
+				seat.focused.object.Close()
 			}
 		}),
-		NewXkbBinding(seat, escSym, super, func() {
-			seat.WindowManager.WindowManagerV1.ExitSession()
+		newXkbBinding(seat, escSym, super, func() {
+			seat.windowManager.WindowManagerV1.ExitSession()
 		}),
 	}
 
-	seat.PointerBindings = []*PointerBinding{
-		NewPointerBinding(seat, leftButton, super, func() {
-			if seat.Hovered != nil {
-				seat.PointerMove(seat.Hovered)
+	seat.pointerBindings = []*pointerBinding{
+		newPointerBinding(seat, leftButton, super, func() {
+			if seat.hovered != nil {
+				seat.pointerMove(seat.hovered)
 			}
 		}),
-		NewPointerBinding(seat, rightButton, super, func() {
-			if seat.Hovered != nil {
-				seat.PointerResize(seat.Hovered, protocol.RiverWindowV1EdgesRight|protocol.RiverWindowV1EdgesBottom)
+		newPointerBinding(seat, rightButton, super, func() {
+			if seat.hovered != nil {
+				seat.pointerResize(seat.hovered, protocol.RiverWindowV1EdgesRight|protocol.RiverWindowV1EdgesBottom)
 			}
 		}),
 	}
 
-	seat.Object.SetUserData(seat)
+	seat.object.SetUserData(seat)
 
 	return seat
 }
 
-func (s *Seat) Focus(window *Window) {
-	windowManager := s.WindowManager
+func (s *seat) focus(window *window) {
+	windowManager := s.windowManager
 
-	if window == nil && len(windowManager.Windows) > 0 {
-		window = windowManager.Windows[len(windowManager.Windows)-1]
+	if window == nil && len(windowManager.windows) > 0 {
+		window = windowManager.windows[len(windowManager.windows)-1]
 	}
 
-	if s.Focused == window {
+	if s.focused == window {
 		return
 	}
 
 	if window != nil {
-		s.Object.FocusWindow(window.Object)
+		s.object.FocusWindow(window.object)
 
 		// Raise to top
-		idx := slices.Index(windowManager.Windows, window)
-		windowManager.Windows = append(windowManager.Windows[:idx], windowManager.Windows[idx+1:]...)
-		windowManager.Windows = append(windowManager.Windows, window)
+		index := slices.Index(windowManager.windows, window)
+		windowManager.windows = append(windowManager.windows[:index], windowManager.windows[index+1:]...)
+		windowManager.windows = append(windowManager.windows, window)
 
-		window.Node.PlaceTop()
+		window.node.PlaceTop()
 	} else {
-		s.Object.ClearFocus()
+		s.object.ClearFocus()
 	}
 
-	s.Focused = window
+	s.focused = window
 }
 
-func (s *Seat) HandleRiverSeatV1OpDelta(ctx context.Context, dx int32, dy int32) {
-	s.OperationState.Dx, s.OperationState.Dy = dx, dy
+func (s *seat) HandleRiverSeatV1OpDelta(ctx context.Context, dx int32, dy int32) {
+	s.operationState.dx, s.operationState.dy = dx, dy
 }
 
-func (s *Seat) HandleRiverSeatV1OpRelease(ctx context.Context) {
-	s.OperationReleased = true
+func (s *seat) HandleRiverSeatV1OpRelease(ctx context.Context) {
+	s.operationReleased = true
 }
 
-func (s *Seat) HandleRiverSeatV1PointerEnter(ctx context.Context, window protocol.RiverWindowV1) {
-	s.Hovered = window.UserData().(*Window)
+func (s *seat) HandleRiverSeatV1PointerEnter(ctx context.Context, riverWindow protocol.RiverWindowV1) {
+	s.hovered = riverWindow.UserData().(*window)
 }
 
-func (s *Seat) HandleRiverSeatV1PointerLeave(ctx context.Context) {
-	s.Hovered = nil
+func (s *seat) HandleRiverSeatV1PointerLeave(ctx context.Context) {
+	s.hovered = nil
 }
 
-func (s *Seat) HandleRiverSeatV1Removed(ctx context.Context) {
-	s.Removed = true
+func (s *seat) HandleRiverSeatV1Removed(ctx context.Context) {
+	s.removed = true
 }
 
-func (s *Seat) HandleRiverSeatV1WindowInteraction(ctx context.Context, window protocol.RiverWindowV1) {
-	s.Interacted = window.UserData().(*Window)
+func (s *seat) HandleRiverSeatV1WindowInteraction(ctx context.Context, riverWindow protocol.RiverWindowV1) {
+	s.interacted = riverWindow.UserData().(*window)
 }
 
-func (s *Seat) MaybeDestroy() bool {
-	if !s.Removed {
+func (s *seat) maybeDestroy() bool {
+	if !s.removed {
 		return false
 	}
 
-	for _, binding := range s.XkbBindings {
-		binding.Object.Destroy()
+	for _, binding := range s.xkbBindings {
+		binding.object.Destroy()
 	}
 
-	for _, binding := range s.PointerBindings {
-		binding.Object.Destroy()
+	for _, binding := range s.pointerBindings {
+		binding.object.Destroy()
 	}
 
-	s.Object.Destroy()
+	s.object.Destroy()
 
 	return true
 }
 
-func (s *Seat) Manage() {
-	if s.New {
-		s.New = false
-		for _, binding := range s.XkbBindings {
-			binding.Object.Enable()
+func (s *seat) manage() {
+	if s.isNew {
+		s.isNew = false
+		for _, binding := range s.xkbBindings {
+			binding.object.Enable()
 		}
 
-		for _, binding := range s.PointerBindings {
-			binding.Object.Enable()
+		for _, binding := range s.pointerBindings {
+			binding.object.Enable()
 		}
 	}
 
-	if w := s.Focused; w != nil && w.Closed {
-		s.Focused = nil
+	if focused := s.focused; focused != nil && focused.closed {
+		s.focused = nil
 	}
 
 	// If no window was interacted with in the current manage sequence,
 	// intentionally pass nil to ensure the window on top has focus.
 	// This is necessary to handle new windows for example.
-	s.Focus(s.Interacted)
-	s.Interacted = nil
+	s.focus(s.interacted)
+	s.interacted = nil
 
-	if s.PendingAction != nil {
-		s.PendingAction()
-		s.PendingAction = nil
+	if s.pendingAction != nil {
+		s.pendingAction()
+		s.pendingAction = nil
 	}
 
-	s.HandleOperation()
+	s.handleOperation()
 
-	s.OperationReleased = false
+	s.operationReleased = false
 }
 
-func (s *Seat) HandleOperation() {
-	if operation := s.Operation; operation != nil {
+func (s *seat) handleOperation() {
+	if operation := s.operation; operation != nil {
 		switch {
-		case s.OperationReleased:
-			operation.InformEnd(s.OperationState.Window)
+		case s.operationReleased:
+			operation.informEnd(s.operationState.window)
 			fallthrough
-		case s.OperationState.Window.Closed:
-			s.Object.OpEnd()
-			s.Operation = nil
+		case s.operationState.window.closed:
+			s.object.OpEnd()
+			s.operation = nil
 		default:
-			operation.Manage(&s.OperationState)
+			operation.manage(&s.operationState)
 		}
 	}
 }
 
-func (s *Seat) Render() {
-	if op := s.Operation; op != nil {
-		op.Render(&s.OperationState)
+func (s *seat) render() {
+	if operation := s.operation; operation != nil {
+		operation.render(&s.operationState)
 	}
 }
 
-func (s *Seat) StartOperation(window *Window, operation SeatOperation) {
-	if s.Operation != nil {
+func (s *seat) startOperation(window *window, operation seatOperation) {
+	if s.operation != nil {
 		return
 	}
 
-	s.Operation = operation
-	s.OperationState = SeatOperationState{
-		Window: window,
+	s.operation = operation
+	s.operationState = seatOperationState{
+		window: window,
 	}
 
-	s.Focus(window)
+	s.focus(window)
 
-	s.Object.OpStartPointer()
-	operation.InformStart(window)
+	s.object.OpStartPointer()
+	operation.informStart(window)
 }
 
-func (s *Seat) PointerMove(w *Window) {
-	s.StartOperation(w, NewSeatOperationMove(w))
+func (s *seat) pointerMove(window *window) {
+	s.startOperation(window, newSeatOperationMove(window))
 }
 
-func (s *Seat) PointerResize(w *Window, edges uint32) {
-	s.StartOperation(w, NewSeatOperationResize(w, edges))
+func (s *seat) pointerResize(window *window, edges uint32) {
+	s.startOperation(window, newSeatOperationResize(window, edges))
 }
 
-type SeatOperationMove struct {
-	StartX, StartY int32
+type seatOperationMove struct {
+	startX, startY int32
 }
 
-func NewSeatOperationMove(w *Window) *SeatOperationMove {
-	return &SeatOperationMove{
-		StartX: w.X,
-		StartY: w.Y,
-	}
-}
-
-func (s *SeatOperationMove) Manage(state *SeatOperationState) {}
-
-func (s *SeatOperationMove) Render(state *SeatOperationState) {
-	state.Window.SetPosition(s.StartX+state.Dx, s.StartY+state.Dy)
-}
-
-func (s *SeatOperationMove) InformStart(w *Window) {}
-
-func (s *SeatOperationMove) InformEnd(w *Window) {}
-
-type SeatOperationResize struct {
-	StartX, StartY          int32
-	StartWidth, StartHeight int32
-	Edges                   uint32
-}
-
-func NewSeatOperationResize(w *Window, edges uint32) *SeatOperationResize {
-	return &SeatOperationResize{
-		StartX:      w.X,
-		StartY:      w.Y,
-		StartWidth:  w.Width,
-		StartHeight: w.Height,
-		Edges:       edges,
+func newSeatOperationMove(window *window) *seatOperationMove {
+	return &seatOperationMove{
+		startX: window.x,
+		startY: window.y,
 	}
 }
 
-func (s *SeatOperationResize) Manage(state *SeatOperationState) {
-	width, height := s.StartWidth, s.StartHeight
+func (move *seatOperationMove) manage(state *seatOperationState) {}
+
+func (move *seatOperationMove) render(state *seatOperationState) {
+	state.window.setPosition(move.startX+state.dx, move.startY+state.dy)
+}
+
+func (move *seatOperationMove) informStart(window *window) {}
+
+func (move *seatOperationMove) informEnd(window *window) {}
+
+type seatOperationResize struct {
+	startX, startY          int32
+	startWidth, startHeight int32
+	edges                   uint32
+}
+
+func newSeatOperationResize(window *window, edges uint32) *seatOperationResize {
+	return &seatOperationResize{
+		startX:      window.x,
+		startY:      window.y,
+		startWidth:  window.width,
+		startHeight: window.height,
+		edges:       edges,
+	}
+}
+
+func (resize *seatOperationResize) manage(state *seatOperationState) {
+	width, height := resize.startWidth, resize.startHeight
 	switch {
-	case s.Edges&protocol.RiverWindowV1EdgesLeft != 0:
-		width -= state.Dx
-	case s.Edges&protocol.RiverWindowV1EdgesRight != 0:
-		width += state.Dx
+	case resize.edges&protocol.RiverWindowV1EdgesLeft != 0:
+		width -= state.dx
+	case resize.edges&protocol.RiverWindowV1EdgesRight != 0:
+		width += state.dx
 	}
 
 	switch {
-	case s.Edges&protocol.RiverWindowV1EdgesTop != 0:
-		height -= state.Dy
-	case s.Edges&protocol.RiverWindowV1EdgesBottom != 0:
-		height += state.Dy
+	case resize.edges&protocol.RiverWindowV1EdgesTop != 0:
+		height -= state.dy
+	case resize.edges&protocol.RiverWindowV1EdgesBottom != 0:
+		height += state.dy
 	}
 
-	state.Window.Object.ProposeDimensions(max(width, 1), max(height, 1))
+	state.window.object.ProposeDimensions(max(width, 1), max(height, 1))
 }
 
-func (s *SeatOperationResize) Render(state *SeatOperationState) {
-	x := s.StartX
-	if s.Edges&protocol.RiverWindowV1EdgesLeft != 0 {
-		x += s.StartWidth - state.Window.Width
+func (resize *seatOperationResize) render(state *seatOperationState) {
+	x := resize.startX
+	if resize.edges&protocol.RiverWindowV1EdgesLeft != 0 {
+		x += resize.startWidth - state.window.width
 	}
 
-	y := s.StartY
-	if s.Edges&protocol.RiverWindowV1EdgesTop != 0 {
-		y += s.StartHeight - state.Window.Height
+	y := resize.startY
+	if resize.edges&protocol.RiverWindowV1EdgesTop != 0 {
+		y += resize.startHeight - state.window.height
 	}
 
-	state.Window.SetPosition(x, y)
+	state.window.setPosition(x, y)
 }
 
-func (s *SeatOperationResize) InformStart(w *Window) {
-	w.Object.InformResizeStart()
+func (resize *seatOperationResize) informStart(window *window) {
+	window.object.InformResizeStart()
 }
 
-func (s *SeatOperationResize) InformEnd(w *Window) {
-	w.Object.InformResizeEnd()
+func (resize *seatOperationResize) informEnd(window *window) {
+	window.object.InformResizeEnd()
 }

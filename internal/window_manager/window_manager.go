@@ -19,12 +19,12 @@ type WindowManager struct {
 	Done bool
 	Err  error
 
-	Outputs []*Output
-	Windows []*Window
-	Seats   []*Seat
+	outputs []*output
+	windows []*window
+	seats   []*seat
 }
 
-func (wm *WindowManager) HandleWlRegistryGlobal(
+func (windowManager *WindowManager) HandleWlRegistryGlobal(
 	ctx context.Context,
 	name uint32,
 	iface string,
@@ -33,59 +33,59 @@ func (wm *WindowManager) HandleWlRegistryGlobal(
 	switch iface {
 	case protocol.RiverWindowManagerV1Name:
 		if version >= 4 {
-			wm.WindowManagerV1 = protocol.As[protocol.RiverWindowManagerV1](wm.Registry.Bind(name, iface, 4))
+			windowManager.WindowManagerV1 = protocol.As[protocol.RiverWindowManagerV1](windowManager.Registry.Bind(name, iface, 4))
 		}
 	case protocol.RiverXkbBindingsV1Name:
-		wm.XkbBindingsV1 = protocol.As[protocol.RiverXkbBindingsV1](wm.Registry.Bind(name, iface, 1))
+		windowManager.XkbBindingsV1 = protocol.As[protocol.RiverXkbBindingsV1](windowManager.Registry.Bind(name, iface, 1))
 	}
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1Unavailable(ctx context.Context) {
-	wm.Done = true
-	wm.Err = errors.New("another window manager is already running")
+func (windowManager *WindowManager) HandleRiverWindowManagerV1Unavailable(ctx context.Context) {
+	windowManager.Done = true
+	windowManager.Err = errors.New("another window manager is already running")
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1Finished(ctx context.Context) {
-	wm.Done = true
+func (windowManager *WindowManager) HandleRiverWindowManagerV1Finished(ctx context.Context) {
+	windowManager.Done = true
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1Output(
+func (windowManager *WindowManager) HandleRiverWindowManagerV1Output(
 	ctx context.Context,
 	id protocol.RiverOutputV1,
 ) {
-	wm.Outputs = append(wm.Outputs, NewOutput(id))
+	windowManager.outputs = append(windowManager.outputs, newOutput(id))
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1Window(
+func (windowManager *WindowManager) HandleRiverWindowManagerV1Window(
 	ctx context.Context,
 	id protocol.RiverWindowV1,
 ) {
-	wm.Windows = append(wm.Windows, NewWindow(id))
+	windowManager.windows = append(windowManager.windows, newWindow(id))
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1Seat(ctx context.Context, id protocol.RiverSeatV1) {
-	wm.Seats = append(wm.Seats, NewSeat(id, wm))
+func (windowManager *WindowManager) HandleRiverWindowManagerV1Seat(ctx context.Context, id protocol.RiverSeatV1) {
+	windowManager.seats = append(windowManager.seats, newSeat(id, windowManager))
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1ManageStart(ctx context.Context) {
-	wm.Outputs = slices.DeleteFunc(wm.Outputs, (*Output).MaybeDestroy)
-	wm.Windows = slices.DeleteFunc(wm.Windows, (*Window).MaybeDestroy)
-	wm.Seats = slices.DeleteFunc(wm.Seats, (*Seat).MaybeDestroy)
+func (windowManager *WindowManager) HandleRiverWindowManagerV1ManageStart(ctx context.Context) {
+	windowManager.outputs = slices.DeleteFunc(windowManager.outputs, (*output).maybeDestroy)
+	windowManager.windows = slices.DeleteFunc(windowManager.windows, (*window).maybeDestroy)
+	windowManager.seats = slices.DeleteFunc(windowManager.seats, (*seat).maybeDestroy)
 
-	for _, w := range wm.Windows {
-		w.Manage()
+	for _, window := range windowManager.windows {
+		window.manage()
 	}
-	for _, s := range wm.Seats {
-		s.Manage()
+	for _, seat := range windowManager.seats {
+		seat.manage()
 	}
 
-	wm.WindowManagerV1.ManageFinish()
+	windowManager.WindowManagerV1.ManageFinish()
 }
 
-func (wm *WindowManager) HandleRiverWindowManagerV1RenderStart(ctx context.Context) {
-	for _, s := range wm.Seats {
-		s.Render()
+func (windowManager *WindowManager) HandleRiverWindowManagerV1RenderStart(ctx context.Context) {
+	for _, seat := range windowManager.seats {
+		seat.render()
 	}
 
-	wm.WindowManagerV1.RenderFinish()
+	windowManager.WindowManagerV1.RenderFinish()
 }

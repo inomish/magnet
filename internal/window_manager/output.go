@@ -6,15 +6,15 @@ import (
 	"github.com/inomish/magnet/generated/protocol"
 )
 
-type Output struct {
+type output struct {
 	protocol.RiverOutputV1Stub
-	Object  protocol.RiverOutputV1
-	Removed bool
+	object  protocol.RiverOutputV1
+	removed bool
 }
 
-func NewOutput(object protocol.RiverOutputV1) *Output {
-	output := &Output{
-		Object: object,
+func newOutput(object protocol.RiverOutputV1) *output {
+	output := &output{
+		object: object,
 	}
 
 	object.SetUserData(output)
@@ -22,16 +22,16 @@ func NewOutput(object protocol.RiverOutputV1) *Output {
 	return output
 }
 
-func (o *Output) HandleRiverOutputV1Removed(ctx context.Context) {
-	o.Removed = true
+func (o *output) HandleRiverOutputV1Removed(ctx context.Context) {
+	o.removed = true
 }
 
-func (o *Output) MaybeDestroy() bool {
-	if !o.Removed {
+func (o *output) maybeDestroy() bool {
+	if !o.removed {
 		return false
 	}
 
-	o.Object.Destroy()
+	o.object.Destroy()
 
 	return true
 }
