@@ -1,0 +1,40 @@
+version: "2"
+linters:
+  default: standard
+  enable:
+    - gosec
+    - wsl_v5
+    - gocritic
+    - varnamelen
+    - prealloc
+    - cyclop
+    - gocognit
+    - nestif
+    - misspell
+    - unconvert
+    - unparam
+    - wrapcheck
+    - nilnil
+    - nilnesserr
+    - errorlint
+    - modernize
+    - decorder
+    - funcorder
+    - sloglint
+    - errname
+    - testifylint
+    - paralleltest
+    - thelper
+  settings:
+    varnamelen:
+      ignore-names:
+        - x
+        - y
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - varnamelen
+      - linters:
+          - errcheck
+        text: "Error return value of `.*\\.Close` is not checked"
