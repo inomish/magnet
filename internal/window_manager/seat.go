@@ -5,8 +5,10 @@ import (
 	"log"
 	"os/exec"
 	"slices"
+	"strings"
 
 	"github.com/inomish/magnet/generated/protocol"
+	"github.com/inomish/magnet/internal/config"
 )
 
 type seat struct {
@@ -26,7 +28,11 @@ type seat struct {
 	removed bool
 }
 
-func newSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *seat {
+func newSeat(
+	object protocol.RiverSeatV1,
+	windowManager *WindowManager,
+	cfg config.Configuration,
+) *seat {
 	const (
 		// See xkbcommon-keysyms.h
 		spaceSym = 0x0020
@@ -43,16 +49,27 @@ func newSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *seat {
 		isNew:         true,
 	}
 
-	seat.xkbBindings = []*xkbBinding{
-		newXkbBinding(seat, spaceSym, super, func() {
-			cmd := exec.Command("kitty")
+	for _, pair := range cfg.ConfigPairs {
+		keysym := pair.Keysym
+		mods := pair.Modifiers
 
-			if err := cmd.Start(); err != nil {
-				log.Printf("Failed to launch foot: %v", err)
-				return
-			}
-			go func() { _, _ = cmd.Process.Wait() }()
-		}),
+		action := pair.Action
+		argument := pair.Argument
+
+		// more actions coming soon
+		if action == "spawn" {
+			keysym, mods, argument := keysym, mods, argument
+			seat.xkbBindings = append(
+				seat.xkbBindings,
+				newXkbBinding(seat, keysym, mods, func() {
+					spawn(argument)
+				}))
+		} else {
+			log.Printf("unknown action %q, ignoring", action)
+		}
+	}
+
+	seat.xkbBindings = append(seat.xkbBindings,
 		newXkbBinding(seat, nSym, super, func() {
 			if len(seat.windowManager.windows) > 0 {
 				seat.focus(seat.windowManager.windows[0])
@@ -66,11 +83,36 @@ func newSeat(object protocol.RiverSeatV1, windowManager *WindowManager) *seat {
 		newXkbBinding(seat, escSym, super, func() {
 			seat.windowManager.WindowManagerV1.ExitSession()
 		}),
-	}
+	)
 
 	seat.object.SetUserData(seat)
 
 	return seat
+}
+
+func spawn(command string) {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return
+	}
+
+	cmd := exec.Command(fields[0], fields[1:]...)
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("something went wrong executing %s: %v", command, err)
+		return
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
+}
+
+func (s *seat) HandleRiverSeatV1Removed(ctx context.Context) {
+	s.removed = true
+}
+
+func (s *seat) HandleRiverSeatV1WindowInteraction(ctx context.Context, riverWindow protocol.RiverWindowV1) {
+	s.interacted = riverWindow.UserData().(*window)
 }
 
 func (s *seat) focus(window *window) {
@@ -98,14 +140,6 @@ func (s *seat) focus(window *window) {
 	}
 
 	s.focused = window
-}
-
-func (s *seat) HandleRiverSeatV1Removed(ctx context.Context) {
-	s.removed = true
-}
-
-func (s *seat) HandleRiverSeatV1WindowInteraction(ctx context.Context, riverWindow protocol.RiverWindowV1) {
-	s.interacted = riverWindow.UserData().(*window)
 }
 
 func (s *seat) maybeDestroy() bool {

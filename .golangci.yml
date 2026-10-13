@@ -30,6 +30,7 @@ linters:
       ignore-names:
         - x
         - y
+        - fd
   exclusions:
     rules:
       - path: _test\.go

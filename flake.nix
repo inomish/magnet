@@ -15,6 +15,10 @@
           gofumpt
           just
           river
+
+          libxkbcommon
+          gcc
+          pkg-config
         ];
       };
     });

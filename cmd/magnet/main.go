@@ -7,11 +7,17 @@ import (
 	"os"
 
 	"github.com/inomish/magnet/generated/protocol"
+	"github.com/inomish/magnet/internal/config"
 	windowmanager "github.com/inomish/magnet/internal/window_manager"
 	"hazelnut.eclair.cafe/wlcl"
 )
 
-func run(ctx context.Context) (err error) {
+func run(ctx context.Context) error {
+	cfg, err := config.ReadConfig("")
+	if err != nil {
+		return fmt.Errorf("could not read config: %w", err)
+	}
+
 	conn, err := wlcl.Connect(ctx, "")
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -29,10 +35,9 @@ func run(ctx context.Context) (err error) {
 
 	display := protocol.CreateDisplay(conn)
 
-	windowManager := &windowmanager.WindowManager{}
-
+	windowManager := windowmanager.NewWindowManager(*cfg)
 	windowManager.Registry = display.GetRegistry()
-	windowManager.Registry.SetUserData(windowManager)
+	windowManager.Registry.SetUserData(&windowManager)
 
 	if err := wlcl.Roundtrip(ctx, display); err != nil {
 		return fmt.Errorf("roundtrip: %w", err)
@@ -42,7 +47,7 @@ func run(ctx context.Context) (err error) {
 		return fmt.Errorf("no required globals")
 	}
 
-	windowManager.WindowManagerV1.SetUserData(windowManager)
+	windowManager.WindowManagerV1.SetUserData(&windowManager)
 
 	for !windowManager.Done {
 		if err := conn.Dispatch(ctx); err != nil {

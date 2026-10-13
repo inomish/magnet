@@ -6,11 +6,14 @@ import (
 	"slices"
 
 	"github.com/inomish/magnet/generated/protocol"
+	"github.com/inomish/magnet/internal/config"
 )
 
 type WindowManager struct {
 	protocol.WlRegistryStub
 	protocol.RiverWindowManagerV1Stub
+
+	Cfg config.Configuration
 
 	Registry        protocol.WlRegistry
 	WindowManagerV1 protocol.RiverWindowManagerV1
@@ -22,6 +25,12 @@ type WindowManager struct {
 	outputs []*output
 	windows []*window
 	seats   []*seat
+}
+
+func NewWindowManager(cfg config.Configuration) WindowManager {
+	return WindowManager{
+		Cfg: cfg,
+	}
 }
 
 func (windowManager *WindowManager) HandleWlRegistryGlobal(
@@ -64,7 +73,10 @@ func (windowManager *WindowManager) HandleRiverWindowManagerV1Window(
 }
 
 func (windowManager *WindowManager) HandleRiverWindowManagerV1Seat(ctx context.Context, id protocol.RiverSeatV1) {
-	windowManager.seats = append(windowManager.seats, newSeat(id, windowManager))
+	windowManager.seats = append(
+		windowManager.seats,
+		newSeat(id, windowManager, windowManager.Cfg),
+	)
 }
 
 func (windowManager *WindowManager) HandleRiverWindowManagerV1ManageStart(ctx context.Context) {
@@ -75,6 +87,7 @@ func (windowManager *WindowManager) HandleRiverWindowManagerV1ManageStart(ctx co
 	for _, window := range windowManager.windows {
 		window.manage()
 	}
+
 	for _, seat := range windowManager.seats {
 		seat.manage()
 	}
