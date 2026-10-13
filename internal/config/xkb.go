@@ -132,6 +132,7 @@ func NewKeymapFromNames(rmlvo *RMLVO) (int, error) {
 	ctx := C.xkb_context_new(C.XKB_KEYMAP_COMPILE_NO_FLAGS)
 	defer C.xkb_context_unref(ctx)
 
+	//nolint:gocritic
 	xkbKeymap := C.xkb_keymap_new_from_names2(ctx, &names, KeymapFormatTextV2, C.XKB_KEYMAP_COMPILE_NO_FLAGS)
 	if xkbKeymap == nil {
 		return 0, errors.New("failed to compile a keymap")

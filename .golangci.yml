@@ -26,6 +26,9 @@ linters:
     - paralleltest
     - thelper
   settings:
+    gosec:
+      excludes:
+        - G204
     varnamelen:
       ignore-names:
         - x

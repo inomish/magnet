@@ -60,18 +60,21 @@ func extractConfigPair(key, value string) (*ConfigPair, error) {
 	}
 
 	keyName := keys[len(keys)-1]
+
 	keysym := KeysymFromName(keyName)
 	if keysym == 0 {
 		return nil, fmt.Errorf("invalid binding %q: unknown keysym %q", key, keyName)
 	}
 
 	var mods uint32
+
 	for _, modName := range keys[:len(keys)-1] {
-		mask, err := ModifierFromName(modName)
+		name, err := ModifierFromName(modName)
 		if err != nil {
 			return nil, fmt.Errorf("invalid binding %q: %w", key, err)
 		}
-		mods |= mask
+
+		mods |= name
 	}
 
 	values := strings.SplitN(value, ":", 2)
