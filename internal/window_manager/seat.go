@@ -33,16 +33,6 @@ func newSeat(
 	windowManager *WindowManager,
 	cfg config.Configuration,
 ) *seat {
-	const (
-		// See xkbcommon-keysyms.h
-		spaceSym = 0x0020
-		nSym     = 0x006e
-		qSym     = 0x0071
-		escSym   = 0xff1b
-	)
-
-	const super = protocol.RiverSeatV1ModifiersMod1
-
 	seat := &seat{
 		windowManager: windowManager,
 		object:        object,
@@ -56,34 +46,31 @@ func newSeat(
 		action := pair.Action
 		argument := pair.Argument
 
-		// more actions coming soon
-		if action == "spawn" {
-			keysym, mods, argument := keysym, mods, argument
+		switch action {
+		case "spawn":
 			seat.xkbBindings = append(
 				seat.xkbBindings,
 				newXkbBinding(seat, keysym, mods, func() {
 					spawn(argument)
-				}))
-		} else {
-			log.Printf("unknown action %q, ignoring", action)
+				}),
+			)
+
+		case "do":
+			if argument == "close" {
+				seat.xkbBindings = append(
+					seat.xkbBindings,
+					newXkbBinding(seat, keysym, mods, func() {
+						if seat.focused != nil {
+							seat.focused.object.Close()
+						}
+					}),
+				)
+			}
+
+		default:
+			log.Printf("unknown action %q\n", action)
 		}
 	}
-
-	seat.xkbBindings = append(seat.xkbBindings,
-		newXkbBinding(seat, nSym, super, func() {
-			if len(seat.windowManager.windows) > 0 {
-				seat.focus(seat.windowManager.windows[0])
-			}
-		}),
-		newXkbBinding(seat, qSym, super, func() {
-			if seat.focused != nil {
-				seat.focused.object.Close()
-			}
-		}),
-		newXkbBinding(seat, escSym, super, func() {
-			seat.windowManager.WindowManagerV1.ExitSession()
-		}),
-	)
 
 	seat.object.SetUserData(seat)
 
@@ -102,6 +89,7 @@ func spawn(command string) {
 		log.Printf("something went wrong executing %s: %v", command, err)
 		return
 	}
+
 	go func() {
 		_ = cmd.Wait()
 	}()
